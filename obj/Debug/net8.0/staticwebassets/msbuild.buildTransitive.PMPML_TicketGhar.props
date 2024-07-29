@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="..\buildMultiTargeting\PMPML_TicketGhar.props" />
+</Project>

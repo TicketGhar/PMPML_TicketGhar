@@ -1,0 +1,134 @@
+CREATE TABLE Busses (
+    BusId INT PRIMARY KEY IDENTITY(1,1),
+    BusNumber NVARCHAR(20) NOT NULL UNIQUE,
+    FromLocation NVARCHAR(100) NOT NULL,
+    ToLocation NVARCHAR(100) NOT NULL,
+    TravelTime DATETIME NOT NULL,
+    TicketPrice DECIMAL(10, 2) NOT NULL
+);
+
+CREATE TABLE aadharRegister (
+    FullName NVARCHAR(100) NOT NULL,
+    Mobile NVARCHAR(20) NOT NULL,
+    Email NVARCHAR(100) NOT NULL,
+    AadharNumber CHAR(12) NOT NULL PRIMARY KEY,
+    Gender NVARCHAR(10) NOT NULL
+);
+
+-- Create regularTicket Table
+CREATE TABLE regularTicket (
+    TicketId INT PRIMARY KEY IDENTITY(1,1),
+    FromLocation NVARCHAR(100) NOT NULL,
+    ToLocation NVARCHAR(100) NOT NULL,
+    NoOfTraveler INT NOT NULL,
+    Mobile NVARCHAR(20) NOT NULL,
+    AadharNumber CHAR(12) NOT NULL,
+    GenerationTime DATETIME NOT NULL DEFAULT GETDATE(),
+    BusNumber NVARCHAR(20) NOT NULL,
+    CONSTRAINT FK_regularTicket_aadharRegister FOREIGN KEY (AadharNumber) REFERENCES aadharRegister(AadharNumber),
+    CONSTRAINT FK_regularTicket_Busses FOREIGN KEY (BusNumber) REFERENCES Busses(BusNumber)
+);
+
+-- Create payment Table
+CREATE TABLE payment (
+    PaymentId INT PRIMARY KEY IDENTITY(1,1),
+    AadharNumber CHAR(12) NOT NULL,
+    Amount DECIMAL(10, 2) NOT NULL,
+    PaymentDate DATETIME NOT NULL,
+    RazorpayOrderId NVARCHAR(100) NOT NULL,
+    RazorpayPaymentId NVARCHAR(100) NOT NULL,
+    CONSTRAINT FK_payment_aadharRegister FOREIGN KEY (AadharNumber) REFERENCES aadharRegister(AadharNumber)
+);
+
+-- Create regularPass Table
+CREATE TABLE regularPass (
+    PassId INT PRIMARY KEY IDENTITY(1,1),
+    FullName NVARCHAR(100) NOT NULL,
+    FromLocation NVARCHAR(100) NOT NULL,
+    ToLocation NVARCHAR(100) NOT NULL,
+    AadharNumber CHAR(12) NOT NULL,
+    GenerationTime DATETIME NOT NULL DEFAULT GETDATE(),
+    BusNumber NVARCHAR(20) NOT NULL,
+    CONSTRAINT FK_regularPass_aadharRegister FOREIGN KEY (AadharNumber) REFERENCES aadharRegister(AadharNumber),
+    CONSTRAINT FK_regularPass_Busses FOREIGN KEY (BusNumber) REFERENCES Busses(BusNumber)
+);
+
+-- Create monthlyPassRegistration Table
+CREATE TABLE monthlyPassRegistration (
+    RegId INT PRIMARY KEY IDENTITY(1,1),
+    FullName NVARCHAR(100) NOT NULL,
+    Mobile NVARCHAR(20) NOT NULL,
+    AadharNumber CHAR(12) NOT NULL,
+    Gender NVARCHAR(10) NOT NULL,
+    VerificationCode NVARCHAR(50) NOT NULL,
+    RegistrationDate DATETIME NOT NULL DEFAULT GETDATE(),
+    BusNumber NVARCHAR(20) NOT NULL,
+    CONSTRAINT FK_monthlyPassRegistration_Busses FOREIGN KEY (BusNumber) REFERENCES Busses(BusNumber)
+);
+
+-- Create penalty Table
+CREATE TABLE penalty (
+    PenaltyId INT PRIMARY KEY IDENTITY(1,1),
+    AadharNumber CHAR(12) NOT NULL,
+    Amount DECIMAL(10, 2) NOT NULL,
+    PenaltyDate DATETIME NOT NULL,
+    BusNumber NVARCHAR(20) NOT NULL,
+    Message NVARCHAR(255) NOT NULL,
+    CONSTRAINT FK_penalty_aadharRegister FOREIGN KEY (AadharNumber) REFERENCES aadharRegister(AadharNumber),
+    CONSTRAINT FK_penalty_Busses FOREIGN KEY (BusNumber) REFERENCES Busses(BusNumber)
+);
+
+
+--for pdf entry 
+
+CREATE TABLE StudentPass (
+    PassId INT PRIMARY KEY IDENTITY(1,1),
+    FullName NVARCHAR(100) NOT NULL,
+    FromLocation NVARCHAR(100) NOT NULL,
+    ToLocation NVARCHAR(100) NOT NULL,
+    AadharNumber CHAR(12) NOT NULL,
+    GenerationTime DATETIME NOT NULL DEFAULT GETDATE(),
+    BusNumber NVARCHAR(20) NOT NULL,
+    PassPDF VARBINARY(MAX) NOT NULL,
+    CONSTRAINT FK_StudentPass_aadharRegister FOREIGN KEY (AadharNumber) REFERENCES aadharRegister(AadharNumber),
+    CONSTRAINT FK_StudentPass_Busses FOREIGN KEY (BusNumber) REFERENCES Busses(BusNumber)
+);
+
+CREATE TABLE MonthlyPass (
+    PassId INT PRIMARY KEY IDENTITY(1,1),
+    FullName NVARCHAR(100) NOT NULL,
+    FromLocation NVARCHAR(100) NOT NULL,
+    ToLocation NVARCHAR(100) NOT NULL,
+    AadharNumber CHAR(12) NOT NULL,
+    GenerationTime DATETIME NOT NULL DEFAULT GETDATE(),
+    BusNumber NVARCHAR(20) NOT NULL,
+    PassPDF VARBINARY(MAX) NOT NULL,
+    CONSTRAINT FK_MonthlyPass_aadharRegister FOREIGN KEY (AadharNumber) REFERENCES aadharRegister(AadharNumber),
+    CONSTRAINT FK_MonthlyPass_Busses FOREIGN KEY (BusNumber) REFERENCES Busses(BusNumber)
+);
+
+
+CREATE TABLE YearlyPass (
+    PassId INT PRIMARY KEY IDENTITY(1,1),
+    FullName NVARCHAR(100) NOT NULL,
+    FromLocation NVARCHAR(100) NOT NULL,
+    ToLocation NVARCHAR(100) NOT NULL,
+    AadharNumber CHAR(12) NOT NULL,
+    GenerationTime DATETIME NOT NULL DEFAULT GETDATE(),
+    BusNumber NVARCHAR(20) NOT NULL,
+    PassPDF VARBINARY(MAX) NOT NULL,
+    CONSTRAINT FK_YearlyPass_aadharRegister FOREIGN KEY (AadharNumber) REFERENCES aadharRegister(AadharNumber),
+    CONSTRAINT FK_YearlyPass_Busses FOREIGN KEY (BusNumber) REFERENCES Busses(BusNumber)
+);
+
+-------------------------------------
+.net code for storing pdf
+public void AddPassPDF(int passId, byte[] pdfData, string passType)
+{
+    using (var connection = new SqlConnection(_connectionString))
+    {
+        string query = $"UPDATE {passType}Pass SET PassPDF = @PassPDF WHERE PassId = @PassId";
+        connection.Execute(query, new { PassPDF = pdfData, PassId = passId });
+    }
+}
+------------------------------------

@@ -1,0 +1,238 @@
+-- Create aadharRegister Table
+CREATE TABLE aadharRegister (
+    FullName NVARCHAR(100) NOT NULL,
+    Mobile NVARCHAR(20) NOT NULL,
+    Email NVARCHAR(100) NOT NULL,
+    AadharNumber CHAR(12) NOT NULL PRIMARY KEY,
+    Gender NVARCHAR(10) NOT NULL
+);
+
+-- Create regularTicket Table
+CREATE TABLE regularTicket (
+    TicketId INT PRIMARY KEY IDENTITY(1,1),
+    FromLocation NVARCHAR(100) NOT NULL,
+    ToLocation NVARCHAR(100) NOT NULL,
+    NoOfTraveler INT NOT NULL,
+    Mobile NVARCHAR(20) NOT NULL,
+    AadharNumber CHAR(12) NOT NULL,
+    GenerationTime DATETIME NOT NULL DEFAULT GETDATE(),
+    BusNumber NVARCHAR(20) NOT NULL,
+    CONSTRAINT FK_regularTicket_aadharRegister FOREIGN KEY (AadharNumber) REFERENCES aadharRegister(AadharNumber),
+    CONSTRAINT FK_regularTicket_Busses FOREIGN KEY (BusNumber) REFERENCES Busses(BusNumber)
+);
+
+-- Create Busses Table
+CREATE TABLE Busses (
+    BusId INT PRIMARY KEY IDENTITY(1,1),
+    BusNumber NVARCHAR(20) NOT NULL,
+    FromLocation NVARCHAR(100) NOT NULL,
+    ToLocation NVARCHAR(100) NOT NULL,
+    TravelTime DATETIME NOT NULL,
+    TicketPrice DECIMAL(10, 2) NOT NULL
+);
+
+-- Create payment Table
+CREATE TABLE payment (
+    PaymentId INT PRIMARY KEY IDENTITY(1,1),
+    AadharNumber CHAR(12) NOT NULL,
+    Amount DECIMAL(10, 2) NOT NULL,
+    PaymentDate DATETIME NOT NULL,
+    RazorpayOrderId NVARCHAR(100) NOT NULL,
+    RazorpayPaymentId NVARCHAR(100) NOT NULL,
+    CONSTRAINT FK_payment_aadharRegister FOREIGN KEY (AadharNumber) REFERENCES aadharRegister(AadharNumber)
+);
+
+-- Create regularPass Table
+CREATE TABLE regularPass (
+    PassId INT PRIMARY KEY IDENTITY(1,1),
+    FullName NVARCHAR(100) NOT NULL,
+    FromLocation NVARCHAR(100) NOT NULL,
+    ToLocation NVARCHAR(100) NOT NULL,
+    AadharNumber CHAR(12) NOT NULL,
+    GenerationTime DATETIME NOT NULL DEFAULT GETDATE(),
+    BusNumber NVARCHAR(20) NOT NULL,
+    CONSTRAINT FK_regularPass_aadharRegister FOREIGN KEY (AadharNumber) REFERENCES aadharRegister(AadharNumber),
+    CONSTRAINT FK_regularPass_Busses FOREIGN KEY (BusNumber) REFERENCES Busses(BusNumber)
+);
+
+-- Create monthlyPassRegistration Table
+CREATE TABLE monthlyPassRegistration (
+    RegId INT PRIMARY KEY IDENTITY(1,1),
+    FullName NVARCHAR(100) NOT NULL,
+    Mobile NVARCHAR(20) NOT NULL,
+    AadharNumber CHAR(12) NOT NULL,
+    Gender NVARCHAR(10) NOT NULL,
+    VerificationCode NVARCHAR(50) NOT NULL,
+    RegistrationDate DATETIME NOT NULL DEFAULT GETDATE(),
+    BusNumber NVARCHAR(20) NOT NULL,
+    CONSTRAINT FK_monthlyPassRegistration_Busses FOREIGN KEY (BusNumber) REFERENCES Busses(BusNumber)
+);
+
+-- Create penalty Table
+CREATE TABLE penalty (
+    PenaltyId INT PRIMARY KEY IDENTITY(1,1),
+    AadharNumber CHAR(12) NOT NULL,
+    Amount DECIMAL(10, 2) NOT NULL,
+    PenaltyDate DATETIME NOT NULL,
+    BusNumber NVARCHAR(20) NOT NULL,
+    Message NVARCHAR(255) NOT NULL,
+    CONSTRAINT FK_penalty_aadharRegister FOREIGN KEY (AadharNumber) REFERENCES aadharRegister(AadharNumber),
+    CONSTRAINT FK_penalty_Busses FOREIGN KEY (BusNumber) REFERENCES Busses(BusNumber)
+);
+
+---------------------------------------------------------------------------------------------------------------
+
+-- Stored Procedure to Delete Regular Pass Data
+
+CREATE PROCEDURE DeleteRegularPassData
+AS
+BEGIN
+    DELETE FROM regularPass;
+END
+GO
+
+-- Stored Procedure to Delete Old Regular Tickets
+
+CREATE PROCEDURE DeleteOldRegularTickets
+AS
+BEGIN
+    DELETE FROM regularTicket WHERE GenerationTime < DATEADD(HOUR, -2, GETDATE());
+END
+GO
+---------------------------------------------------------------------------------------------------------------
+## Queries for Admin Dashboard
+
+-- Total Tickets Booked
+SELECT COUNT(*) AS TotalTicketsBooked
+FROM regularTicket;
+
+-- Total Penalty Collected
+SELECT SUM(Amount) AS TotalPenaltyCollected
+FROM penalty;
+
+-- Daily Passes Generated
+SELECT COUNT(*) AS DailyPassesGenerated
+FROM regularPass
+WHERE CAST(GenerationTime AS DATE) = CAST(GETDATE() AS DATE);
+
+-- Monthly Passes Generated
+SELECT COUNT(*) AS MonthlyPassesGenerated
+FROM monthlyPassRegistration
+WHERE MONTH(RegistrationDate) = MONTH(GETDATE()) AND YEAR(RegistrationDate) = YEAR(GETDATE());
+
+-- Bus Number-wise Data Collection
+SELECT 
+    b.BusNumber,
+    COUNT(rt.TicketId) AS TotalTickets,
+    SUM(p.Amount) AS TotalPenalty,
+    COUNT(rp.PassId) AS DailyPasses,
+    COUNT(mpr.RegId) AS MonthlyPasses
+FROM Busses b
+LEFT JOIN regularTicket rt ON b.BusNumber = rt.BusNumber
+LEFT JOIN penalty p ON b.BusNumber = p.BusNumber
+LEFT JOIN regularPass rp ON b.BusNumber = rp.BusNumber AND CAST(rp.GenerationTime AS DATE) = CAST(GETDATE() AS DATE)
+LEFT JOIN monthlyPassRegistration mpr ON b.BusNumber = mpr.BusNumber AND MONTH(mpr.RegistrationDate) = MONTH(GETDATE()) AND YEAR(mpr.RegistrationDate) = YEAR(GETDATE())
+GROUP BY b.BusNumber;
+
+
+
+---------------------------------------------------------------------------------------------------------------
+
+
+
+CREATE PROCEDURE CheckTicketAndInsertPenalty
+    @PNR NVARCHAR(20),
+    @Amount DECIMAL(10, 2),
+    @Message NVARCHAR(255)
+AS
+BEGIN
+    DECLARE @AadharNumber NVARCHAR(12);
+    DECLARE @BusNumber NVARCHAR(20);
+
+    -- Check if the PNR exists in regularTicket
+    SELECT @AadharNumber = AadharNumber, @BusNumber = BusNumber
+    FROM regularTicket
+    WHERE TicketId = @PNR;
+
+    IF @AadharNumber IS NOT NULL
+    BEGIN
+        -- Insert penalty record
+        INSERT INTO penalty (AadharNumber, Amount, PenaltyDate, BusNumber, Message)
+        VALUES (@AadharNumber, @Amount, GETDATE(), @BusNumber, @Message);
+    END
+    ELSE
+    BEGIN
+        -- Handle case where PNR does not exist
+        RAISERROR('PNR not found', 16, 1);
+    END
+END
+GO
+
+
+-------------------------------------------------------------------------------------------------------------
+
+-- Script.PostDeployment.sql
+
+-- Insert static data into Busses table
+INSERT INTO Busses (BusNumber, FromLocation, ToLocation, TicketPrice)
+VALUES 
+('2A UP', 'KATRAJ', 'SHIVAJINAGAR', 25.00),
+('2A DOWN', 'SHIVAJINAGAR', 'KATRAJ', 25.00),
+('276', 'KARVE NAGAR', 'RATNA HOSPITAL', 15.00),
+('276', 'RATNA HOSPITAL', 'KARVE NAGAR', 15.00),
+('58 UP', 'SHANIPAR', 'GOKHALE NAGAR', 10.00),
+('58 DOWN', 'GOKHALE NAGAR', 'SHANIPAR', 10.00),
+('59 UP', 'SHANIPAR', 'NILJYOT', 10.00),
+('59 DOWN', 'NILJYOT', 'SHANIPAR', 10.00),
+('119 UP', 'MANAPA', 'ALANDI', 25.00),
+('119 DOWN', 'ALANDI', 'MANAPA', 25.00);
+
+---------------------------------------------------------------------------------------------------------------
+
+--Landing page search button query
+SELECT 
+    b.BusNumber,
+    b.FromLocation,
+    b.ToLocation,
+    b.TravelTime,
+    b.TicketPrice,
+    @NoOfTraveler * b.TicketPrice AS TotalPrice
+FROM 
+    Busses b
+WHERE 
+    b.FromLocation = @FromLocation
+    AND b.ToLocation = @ToLocation
+    AND EXISTS (
+        SELECT 1
+        FROM aadharRegister ar
+        WHERE ar.AadharNumber = @AadharNumber
+    );
+---------------------------------------------------------------------------------------------------------------
+
+-- when you select the route from multiple options
+
+SELECT 
+    b.BusNumber,
+    b.FromLocation,
+    b.ToLocation,
+    b.TicketPrice,
+    @NoOfTraveler * b.TicketPrice AS TotalPrice
+FROM 
+    Busses b
+WHERE 
+    b.BusNumber = @SelectedBusNumber;
+---------------------------------------------------------------------------------------------------------------
+
+-- generate a random number in sql itself 
+
+DECLARE @GeneratedPRN INT;
+SET @GeneratedPRN = FLOOR(RAND() * 90000) + 10000; -- Generates a random number between 10000 and 99999
+
+-- inserting when payment is done 
+
+INSERT INTO payment (AadharNumber, Amount, PaymentDate, RazorpayOrderId, RazorpayPaymentId, PRN)
+VALUES (@AadharNumber, @Amount, GETDATE(), @RazorpayOrderId, @RazorpayPaymentId, @GeneratedPRN);
+
+
+
+

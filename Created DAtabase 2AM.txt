@@ -1,0 +1,172 @@
+CREATE TABLE [dbo].[aadharRegister] (
+    [FullName]     NVARCHAR (100) NOT NULL,
+    [Mobile]       NVARCHAR (20)  NOT NULL,
+    [Email]        NVARCHAR (100) NOT NULL,
+    [AadharNumber] CHAR (12)      NOT NULL,
+    [Gender]       NVARCHAR (10)  NOT NULL,
+    [AadharLast4]  AS             (RIGHT([AadharNumber], (4))) PERSISTED,
+    PRIMARY KEY CLUSTERED ([AadharNumber] ASC)
+);
+
+
+GO
+CREATE NONCLUSTERED INDEX [idx_aadhar_last4]
+    ON [dbo].[aadharRegister]([AadharLast4] ASC);
+
+
+CREATE TABLE [dbo].[MonthlyPass] (
+    [PassId]         INT             IDENTITY (1, 1) NOT NULL,
+    [FullName]       NVARCHAR (100)  NOT NULL,
+    [FromLocation]   NVARCHAR (100)  NOT NULL,
+    [ToLocation]     NVARCHAR (100)  NOT NULL,
+    [AadharNumber]   CHAR (12)       NOT NULL,
+    [GenerationTime] DATETIME        DEFAULT (getdate()) NOT NULL,
+    [BusNumber]      NVARCHAR (20)   NOT NULL,
+    [PassPDF]        VARBINARY (MAX) NULL,
+    [PRN]            NVARCHAR (50)   NULL,
+    [PaymentId]      INT             NULL,
+    PRIMARY KEY CLUSTERED ([PassId] ASC),
+    CONSTRAINT [FK_MonthlyPass_Busses] FOREIGN KEY ([BusNumber]) REFERENCES [dbo].[Busses] ([BusNumber]),
+    CONSTRAINT [FK_MonthlyPass_aadharRegister] FOREIGN KEY ([AadharNumber]) REFERENCES [dbo].[aadharRegister] ([AadharNumber]),
+    CONSTRAINT [FK_MonthlyPass_Payment] FOREIGN KEY ([PaymentId]) REFERENCES [dbo].[payment] ([PaymentId])
+);
+
+
+GO
+CREATE NONCLUSTERED INDEX [idx_prn_monthlyPass]
+    ON [dbo].[MonthlyPass]([PRN] ASC);
+
+
+CREATE TABLE [dbo].[monthlyPassRegistration] (
+    [RegId]            INT            IDENTITY (1, 1) NOT NULL,
+    [FullName]         NVARCHAR (100) NOT NULL,
+    [Mobile]           NVARCHAR (20)  NOT NULL,
+    [AadharNumber]     CHAR (12)      NOT NULL,
+    [Gender]           NVARCHAR (10)  NOT NULL,
+    [VerificationCode] NVARCHAR (50)  NOT NULL,
+    [RegistrationDate] DATETIME       DEFAULT (getdate()) NOT NULL,
+    [Last4Aadhar]      AS             (right([AadharNumber],(4))),
+    PRIMARY KEY CLUSTERED ([RegId] ASC)
+);
+
+
+GO
+CREATE NONCLUSTERED INDEX [idx_last4Aadhar_monthlyPass]
+    ON [dbo].[monthlyPassRegistration]([Last4Aadhar] ASC);
+
+
+CREATE TABLE [dbo].[payment] (
+    [PaymentId]         INT             IDENTITY (1, 1) NOT NULL,
+    [AadharNumber]      CHAR (12)       NOT NULL,
+    [Amount]            DECIMAL (10, 2) NOT NULL,
+    [PaymentDate]       DATETIME        NOT NULL,
+    [RazorpayOrderId]   NVARCHAR (100)  NOT NULL,
+    [RazorpayPaymentId] NVARCHAR (100)  NOT NULL,
+    [Last4Aadhar]       AS              (right([AadharNumber],(4))) PERSISTED,
+    PRIMARY KEY CLUSTERED ([PaymentId] ASC)
+);
+
+
+
+CREATE TABLE [dbo].[penalty] (
+    [PenaltyId]    INT             IDENTITY (1, 1) NOT NULL,
+    [AadharNumber] CHAR (12)       NOT NULL,
+    [Amount]       DECIMAL (10, 2) NOT NULL,
+    [PenaltyDate]  DATETIME        NOT NULL,
+    [BusNumber]    NVARCHAR (20)   NOT NULL,
+    [Message]      NVARCHAR (255)  NOT NULL,
+    PRIMARY KEY CLUSTERED ([PenaltyId] ASC),
+    CONSTRAINT [FK_penalty_aadharRegister] FOREIGN KEY ([AadharNumber]) REFERENCES [dbo].[aadharRegister] ([AadharNumber]),
+    CONSTRAINT [FK_penalty_Busses] FOREIGN KEY ([BusNumber]) REFERENCES [dbo].[Busses] ([BusNumber])
+);
+
+
+
+CREATE TABLE [dbo].[regularPass] (
+    [PassId]         INT            IDENTITY (1, 1) NOT NULL,
+    [FullName]       NVARCHAR (100) NOT NULL,
+    [Mobile]         NVARCHAR (20)  NOT NULL,
+    [AadharNumber]   CHAR (12)      NOT NULL,
+    [Gender]         NVARCHAR (10)  NOT NULL,
+    [GenerationTime] DATETIME       DEFAULT (getdate()) NOT NULL,
+    [PRN]            NVARCHAR (50)  NOT NULL,
+    [Last4Aadhar]    AS             (right([AadharNumber],(4))),
+    PRIMARY KEY CLUSTERED ([PassId] ASC)
+);
+
+
+GO
+CREATE NONCLUSTERED INDEX [idx_last4Aadhar_regularPass]
+    ON [dbo].[regularPass]([Last4Aadhar] ASC);
+
+
+
+CREATE TABLE [dbo].[regularTicket] (
+    [TicketId]       INT            IDENTITY (1, 1) NOT NULL,
+    [FromLocation]   NVARCHAR (100) NOT NULL,
+    [ToLocation]     NVARCHAR (100) NOT NULL,
+    [NoOfTraveler]   INT            NOT NULL,
+    [Mobile]         NVARCHAR (20)  NULL,
+    [AadharNumber]   CHAR (12)      NOT NULL,
+    [GenerationTime] DATETIME       DEFAULT (getdate()) NOT NULL,
+    [BusNumber]      NVARCHAR (20)  NULL,
+    [PRN]            NVARCHAR (20)  NOT NULL,
+    [Last4Aadhar]    AS             (right([AadharNumber],(4))),
+    [PaymentId]      INT            NULL,
+    PRIMARY KEY CLUSTERED ([TicketId] ASC),
+    CONSTRAINT [FK_regularTicket_Busses] FOREIGN KEY ([BusNumber]) REFERENCES [dbo].[Busses] ([BusNumber]),
+    CONSTRAINT [FK_regularTicket_Payment] FOREIGN KEY ([PaymentId]) REFERENCES [dbo].[payment] ([PaymentId]),
+   
+);
+
+
+GO
+CREATE NONCLUSTERED INDEX [idx_last4Aadhar_regularTicket]
+    ON [dbo].[regularTicket]([Last4Aadhar] ASC);
+
+
+CREATE TABLE [dbo].[StudentPass] (
+    [PassId]         INT             IDENTITY (1, 1) NOT NULL,
+    [FullName]       NVARCHAR (100)  NOT NULL,
+    [FromLocation]   NVARCHAR (100)  NOT NULL,
+    [ToLocation]     NVARCHAR (100)  NOT NULL,
+    [AadharNumber]   CHAR (12)       NOT NULL,
+    [GenerationTime] DATETIME        DEFAULT (getdate()) NOT NULL,
+    [BusNumber]      NVARCHAR (20)   NOT NULL,
+    [PassPDF]        VARBINARY (MAX) NOT NULL,
+    [Last4Aadhar]    AS              (right([AadharNumber],(4))) PERSISTED,
+    PRIMARY KEY CLUSTERED ([PassId] ASC),
+    CONSTRAINT [FK_StudentPass_aadharRegister] FOREIGN KEY ([AadharNumber]) REFERENCES [dbo].[aadharRegister] ([AadharNumber]),
+    CONSTRAINT [FK_StudentPass_Busses] FOREIGN KEY ([BusNumber]) REFERENCES [dbo].[Busses] ([BusNumber])
+);
+
+
+GO
+CREATE NONCLUSTERED INDEX [idx_last4Aadhar_studentPass]
+    ON [dbo].[StudentPass]([Last4Aadhar] ASC);
+
+
+
+CREATE TABLE [dbo].[YearlyPass] (
+    [PassId]           INT             IDENTITY (1, 1) NOT NULL,
+    [FullName]         NVARCHAR (100)  NOT NULL,
+    [FromLocation]     NVARCHAR (100)  NOT NULL,
+    [ToLocation]       NVARCHAR (100)  NOT NULL,
+    [AadharNumber]     CHAR (12)       NOT NULL,
+    [GenerationTime]   DATETIME        DEFAULT (getdate()) NOT NULL,
+    [BusNumber]        NVARCHAR (20)   NOT NULL,
+    [PassPDF]          VARBINARY (MAX) NOT NULL,
+    [PRN]              NVARCHAR (50)   NOT NULL,
+    [Mobile]           NVARCHAR (15)   NULL,
+    [Gender]           NVARCHAR (10)   NULL,
+    [VerificationCode] NVARCHAR (50)   NULL,
+    [Last4Aadhar]      AS              (right([AadharNumber],(4))),
+    PRIMARY KEY CLUSTERED ([PassId] ASC),
+    CONSTRAINT [FK_YearlyPass_Busses] FOREIGN KEY ([BusNumber]) REFERENCES [dbo].[Busses] ([BusNumber])
+);
+
+
+GO
+CREATE NONCLUSTERED INDEX [idx_last4Aadhar_YearlyPass]
+    ON [dbo].[YearlyPass]([Last4Aadhar] ASC);
+

@@ -1,6 +1,0 @@
-@PMPML_TicketGhar_HostAddress = http://localhost:5049
-
-GET {{PMPML_TicketGhar_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
